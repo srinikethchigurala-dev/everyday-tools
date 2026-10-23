@@ -1,0 +1,57 @@
+ "use client";
+import {useMemo,useState} from "react";
+const catalog=[
+{category:"Calculators",name:"Percentage Calculator",desc:"Calculate percentages, increases and decreases.",slug:"percentage",icon:"％"},
+{category:"Calculators",name:"Age Calculator",desc:"Find your age in years, months and days.",slug:"age",icon:"🎂"},
+{category:"Calculators",name:"Discount Calculator",desc:"Calculate sale prices and savings.",slug:"discount",icon:"％"},
+{category:"Calculators",name:"BMI Calculator",desc:"Estimate body mass index from height and weight.",slug:"bmi",icon:"⚖"},
+{category:"Calculators",name:"Tip Calculator",desc:"Split a bill and calculate a tip.",slug:"tip",icon:"🧾"},
+{category:"Converters",name:"Unit Converter",desc:"Convert length, weight, temperature and data units.",slug:"convert",icon:"⇄"},
+{category:"Text Tools",name:"Word Counter",desc:"Count words, characters and reading time.",slug:"words",icon:"¶"},
+{category:"Image Tools",name:"Image Resizer",desc:"Resize images locally in your browser.",slug:"image",icon:"▧"},
+{category:"Image Tools",name:"Image Format Converter",desc:"Convert images to PNG, JPEG or WebP.",slug:"format",icon:"▣"},
+{category:"Productivity",name:"Countdown Timer",desc:"Set a simple focus timer.",slug:"timer",icon:"◷"}
+];
+function Tool({slug}){
+const [a,setA]=useState(""),[b,setB]=useState(""),[c,setC]=useState(""),[unit,setUnit]=useState("length"),[text,setText]=useState(""),[file,setFile]=useState(null),[w,setW]=useState(800),[h,setH]=useState(600),[format,setFormat]=useState("image/png"),[result,setResult]=useState(""),[mins,setMins]=useState(5),[left,setLeft]=useState(null);
+const num=Number(a),n2=Number(b);
+function calculate(){
+let r="";
+switch(slug){
+case "percentage":r=`${n2}% of ${num} = ${(num*n2/100).toLocaleString()}`;break;
+case "discount":r=`Sale price: ${(num*(1-n2/100)).toFixed(2)} · You save: ${(num*n2/100).toFixed(2)}`;break;
+case "tip":{const tip=num*n2/100;r=`Tip: ${tip.toFixed(2)} · Total: ${(num+tip).toFixed(2)} · Per person: ${((num+tip)/Math.max(1,Number(c)||1)).toFixed(2)}`;break;}
+case "bmi":{const bmi=n2/(num*num/10000);r=Number.isFinite(bmi)&&bmi>0?`BMI: ${bmi.toFixed(1)} (adult screening estimate; not a diagnosis)`:"Enter height (cm) and weight (kg).";break;}
+case "convert":{let v=num,from=c,to=b;
+if(unit==="length"){const factors={m:1,km:1000,cm:.01,mm:.001,ft:.3048,in:.0254,mi:1609.344};v=num*factors[from]/factors[to];}
+if(unit==="weight"){const factors={kg:1,g:.001,lb:.45359237,oz:.0283495};v=num*factors[from]/factors[to];}
+if(unit==="temperature"){const f=(x,u)=>u==="C"?x:u==="F"?(x-32)*5/9:x-273.15;const o=(x,u)=>u==="C"?x:u==="F"?x*9/5+32:x+273.15;v=o(f(num,from),to);}
+if(unit==="data"){const factors={B:1,KB:1000,MB:1e6,GB:1e9,KiB:1024,MiB:1048576,GiB:1073741824};v=num*factors[from]/factors[to];}
+r=`${num} ${from} = ${Number(v.toPrecision(9))} ${to}`;break;}
+case "age":{const d=new Date(a),now=new Date();if(!a||isNaN(d))r="Choose your date of birth.";else if(d>now)r="Birth date must be in the past.";else {let years=now.getFullYear()-d.getFullYear(),months=now.getMonth()-d.getMonth(),days=now.getDate()-d.getDate();if(days<0){months--;days+=new Date(now.getFullYear(),now.getMonth(),0).getDate()}if(months<0){years--;months+=12}r=`Your age: ${years} years, ${months} months and ${days} days.`}break;}
+default:r="Use the tool controls below.";
+}
+setResult(r);
+}
+async function processImage(){
+if(!file)return;const bitmap=await createImageBitmap(file);const canvas=document.createElement("canvas");canvas.width=Math.max(1,Number(w));canvas.height=Math.max(1,Number(h));const ctx=canvas.getContext("2d");ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+const blob=await new Promise(resolve=>canvas.toBlob(resolve,format,0.9));if(!blob){setResult("Could not convert this image.");return}
+const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=`everyday-tools.${format==="image/jpeg"?"jpg":format.split("/")[1]}`;link.click();URL.revokeObjectURL(url);bitmap.close();setResult(`Ready: ${(blob.size/1024).toFixed(1)} KB. Download started.`);
+}
+if(slug==="words")return <section className="toolbox"><label htmlFor="words">Paste or type your text</label><textarea id="words" rows="8" value={text} onChange={e=>setText(e.target.value)} placeholder="Start typing…"/><div className="stats"><span><b>{text.trim()?text.trim().split(/\s+/).length:0}</b> words</span><span><b>{text.length}</b> characters</span><span><b>{text.replace(/\s/g,"").length}</b> no spaces</span><span><b>{Math.ceil((text.trim()?text.trim().split(/\s+/).length:0)/200)}</b> min read</span></div><button className="secondary" onClick={()=>navigator.clipboard?.writeText(text)}>Copy text</button></section>;
+if(slug==="image"||slug==="format")return <section className="toolbox"><p className="hint">Your image is processed in this browser and is not uploaded to our server.</p><label className="upload">Choose an image<input type="file" accept="image/*" onChange={e=>setFile(e.target.files?.[0]||null)}/></label>{file&&<p className="hint">Selected: {file.name} · {(file.size/1024).toFixed(0)} KB</p>}<div className="fields"><label>Width (px)<input type="number" min="1" max="8000" value={w} onChange={e=>setW(e.target.value)}/></label><label>Height (px)<input type="number" min="1" max="8000" value={h} onChange={e=>setH(e.target.value)}/></label></div><label>Output format<select value={format} onChange={e=>setFormat(e.target.value)}><option value="image/png">PNG</option><option value="image/jpeg">JPEG</option><option value="image/webp">WebP</option></select></label><button onClick={processImage} disabled={!file||w<1||h<1||w>8000||h>8000}>Convert & download</button></section>;
+if(slug==="timer")return <section className="toolbox"><label>Minutes<input type="number" min="1" max="180" value={mins} onChange={e=>setMins(Number(e.target.value))}/></label><button onClick={()=>{setLeft(Date.now()+mins*60000);setResult(`Timer set for ${mins} minutes. Keep this tab open; timer display won't update if you navigate away.`)}}>Start timer</button><p className="output">{left?`${Math.max(0,Math.ceil((left-Date.now())/1000))} sec remaining`:result}</p><p className="hint">Basic timer setup. Use your device clock for the countdown.</p></section>;
+if(slug==="convert")return <section className="toolbox"><label>Category<select value={unit} onChange={e=>{setUnit(e.target.value);setResult("")}}>{["length","weight","temperature","data"].map(x=><option key={x}>{x}</option>)}</select></label><label>Value<input type="number" value={a} onChange={e=>setA(e.target.value)}/></label><div className="fields"><label>From<select value={c} onChange={e=>setC(e.target.value)}>{(unit==="length"?["m","km","cm","mm","ft","in","mi"]:unit==="weight"?["kg","g","lb","oz"]:unit==="temperature"?["C","F","K"]:["B","KB","MB","GB","KiB","MiB","GiB"]).map(x=><option key={x}>{x}</option>)}</select></label><label>To<select value={b} onChange={e=>setB(e.target.value)}>{(unit==="length"?["ft","m","km","cm","mm","in","mi"]:unit==="weight"?["lb","kg","g","oz"]:unit==="temperature"?["F","C","K"]:["MB","GB","B","KB","KiB","MiB","GiB"]).map(x=><option key={x}>{x}</option>)}</select></label></div><button onClick={calculate}>Convert</button>{result&&<p className="output">{result}</p>}</section>;
+return <section className="toolbox">{slug==="age"?<><label>Date of birth<input type="date" value={a} onChange={e=>setA(e.target.value)}/></label><button onClick={calculate}>Calculate age</button></>:<><label>{slug==="bmi"?"Height (cm)":slug==="tip"?"Bill amount":"Amount"}<input type="number" value={a} onChange={e=>setA(e.target.value)}/></label><label>{slug==="bmi"?"Weight (kg)":slug==="tip"?"Tip (%)":slug==="discount"?"Discount (%)":"Percentage (%)"}<input type="number" value={b} onChange={e=>setB(e.target.value)}/></label>{slug==="tip"&&<label>People splitting bill<input type="number" min="1" value={c} onChange={e=>setC(e.target.value)}/></label>}<button onClick={calculate}>Calculate</button></>}{result&&<p className="output" role="status">{result}</p>}</section>;
+}
+export default function Home(){
+const [query,setQuery]=useState(""),[active,setActive]=useState("All tools"),[selected,setSelected]=useState(null);
+const filtered=useMemo(()=>catalog.filter(t=>(active==="All tools"||t.category===active)&&`${t.name} ${t.desc}`.toLowerCase().includes(query.toLowerCase())),[query,active]);
+return <main className="shell"><header className="nav"><a className="brand" href="#"><span className="brand-icon">✦</span> Everyday Tools</a><a href="#tools" className="navlink">Explore tools ↓</a></header><section className="hero"><div className="eyebrow"><span/> FREE ONLINE UTILITIES</div><h1>Little tools.<br/><em>Big time savers.</em></h1><p>Useful calculators, converters and image tools. Simple, fast, and free.</p><div className="search"><span>⌕</span><input aria-label="Search tools" placeholder="What do you need today?" value={query} onChange={e=>{setQuery(e.target.value);setSelected(null)}}/><kbd>Search</kbd></div><div className="hero-foot"><span>✓ No sign-up</span><span>✓ Quick results</span><span>✓ Privacy-minded</span></div></section>
+<div className="ad-slot" aria-label="Advertisement placement">Advertisement · Ad placement</div>
+<section id="tools" className="tools"><div className="section-head"><div><div className="eyebrow">YOUR TOOLBOX</div><h2>What can we help with?</h2><p>Choose a tool and get straight to it.</p></div><span className="count">{filtered.length} tools</span></div><div className="tabs">{["All tools","Calculators","Converters","Text Tools","Image Tools","Productivity"].map(x=><button key={x} className={active===x?"tab active":"tab"} onClick={()=>{setActive(x);setSelected(null)}}>{x}</button>)}</div>{selected?<><button className="back" onClick={()=>setSelected(null)}>← All tools</button><article className="tool-detail"><div className="tool-emoji">{selected.icon}</div><div className="eyebrow">{selected.category}</div><h2>{selected.name}</h2><p>{selected.desc}</p><Tool slug={selected.slug}/></article></>:<div className="cards">{filtered.map(t=><button className="tool-card" key={t.slug} onClick={()=>setSelected(t)}><span className="tool-emoji">{t.icon}</span><span className="tool-title">{t.name}</span><span className="tool-desc">{t.desc}</span><span className="arrow">Open tool ↗</span></button>)}</div>}{filtered.length===0&&<p>No matching tools. Try another search.</p>}</section>
+<section className="seo-copy"><div className="eyebrow">MADE FOR EVERYDAY LIFE</div><h2>Helpful tools, without the hassle.</h2><p>Use our free online calculators for quick everyday math, convert common units, count words, and resize images right in your browser. No account needed for basic tools.</p><div className="info-grid"><div><h3>Fast answers</h3><p>Clear controls and results designed to keep tasks simple.</p></div><div><h3>Private by design</h3><p>Image processing happens locally in your browser on this starter site.</p></div><div><h3>Made for mobile</h3><p>Use the tools on phones, tablets or desktop screens.</p></div></div></section>
+<div className="ad-slot" aria-label="Advertisement placement">Advertisement · Ad placement</div>
+<footer><a className="brand" href="#">✦ Everyday Tools</a><div className="footer-links"><a href="/about.html">About</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/contact.html">Contact</a></div><p>© {new Date().getFullYear()} Everyday Tools. Verify results for important decisions.</p></footer>
+</main>;
+}
